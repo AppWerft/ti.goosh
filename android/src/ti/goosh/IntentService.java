@@ -30,9 +30,7 @@ import android.util.Log;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
@@ -40,8 +38,7 @@ import org.appcelerator.titanium.util.TiRHelper;
 import com.google.android.gms.gcm.GcmListenerService;
 
 public class IntentService extends GcmListenerService {
-
-	private static final String LCAT = "ti.goosh.IntentService";
+	private static final String LCAT = "ti.goosh.IS";
 	private static final AtomicInteger atomic = new AtomicInteger(0);
 
 	@Override
@@ -81,7 +78,7 @@ public class IntentService extends GcmListenerService {
 	private void parseNotification(Bundle bundle) {
 		TiGooshModule module = TiGooshModule.getModule();
 
-		Context context = getApplicationContext();
+		Context context = TiApplication.getInstance().getApplicationContext();
 		Boolean appInBackground = !TiApplication.isCurrentActivityInForeground();
 
 		// Flag that determine if the message should be broadcasted to TiGooshModule and call the callback
@@ -387,7 +384,7 @@ public class IntentService extends GcmListenerService {
 			}
 
 			// Send
-			NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+			NotificationManager notificationManager = (NotificationManager)TiApplication.getInstance().getSystemService(Context.NOTIFICATION_SERVICE);
 			notificationManager.notify(tag, id, builder.build());
 		} else {
 			Log.w(LCAT, "Show Notification: FALSE");
