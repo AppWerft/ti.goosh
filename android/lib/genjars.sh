@@ -10,7 +10,8 @@ VERSION=$1
 GOOGLE=/opt/android-sdk/extras/google/m2repository/com/google
 AAR2JAR=/usr/local/bin/aar2jar.sh
 
-rm *.jar
+#rm *.jar
+
 #$AAR2JAR $GOOGLE/android/gms/play-services/$VERSION/play-services-$VERSION.aar .
 #$AAR2JAR $GOOGLE/android/gms/play-services-ads/$VERSION/play-services-ads-$VERSION.aar .
 $AAR2JAR $GOOGLE/android/gms/play-services-auth/$VERSION/play-services-auth-$VERSION.aar .
@@ -23,6 +24,7 @@ $AAR2JAR $GOOGLE/android/gms/play-services-gcm/$VERSION/play-services-gcm-$VERSI
 $AAR2JAR $GOOGLE/android/gms/play-services-iid/$VERSION/play-services-iid-$VERSION.aar .
 $AAR2JAR $GOOGLE/android/gms/play-services-base/$VERSION/play-services-base-$VERSION.aar .
 $AAR2JAR $GOOGLE/android/gms/play-services-basement/$VERSION/play-services-basement-$VERSION.aar .
+$AAR2JAR $GOOGLE/android/gms/play-services-tasks/$VERSION/play-services-tasks-$VERSION.aar .
 
 $AAR2JAR $GOOGLE/android/gms/play-services-internal/$VERSION/play-services-internal-$VERSION.aar .
 #$AAR2JAR $GOOGLE/android/gms/play-services-measurement/$VERSION/play-services-measurement-$VERSION.aar .

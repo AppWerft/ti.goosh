@@ -8,6 +8,7 @@ import java.net.URL;
 import java.net.HttpURLConnection;
 import java.io.InputStream;
 import java.io.BufferedInputStream;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.lang.reflect.Type;
 import java.lang.Math;
@@ -27,9 +28,9 @@ import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-import com.google.gson.Gson;
+
+
 import com.google.gson.reflect.TypeToken;
-import com.google.gson.JsonObject;
 import com.google.gson.*;
 
 import org.appcelerator.titanium.TiApplication;
@@ -76,11 +77,10 @@ public class IntentService extends GcmListenerService {
 	}
 
 	private void parseNotification(Bundle bundle) {
+		
+		Context ctx = TiApplication.getInstance().getApplicationContext();
 		TiGooshModule module = TiGooshModule.getModule();
-
-		Context context = TiApplication.getInstance().getApplicationContext();
-		Boolean appInBackground = !TiApplication.isCurrentActivityInForeground();
-
+		Boolean appInBackground = !_isInForeground().getIsForeground();
 		// Flag that determine if the message should be broadcasted to TiGooshModule and call the callback
 		Boolean sendMessage = !appInBackground;
 
@@ -134,7 +134,7 @@ public class IntentService extends GcmListenerService {
 
 		if (data != null && data.has("badge") == true) {
 			int badge = data.getAsJsonPrimitive("badge").getAsInt();
-			BadgeUtils.setBadge(context, badge);
+			BadgeUtils.setBadge(ctx, badge);
 		}
 
 		if (sendMessage && module != null) {
@@ -151,8 +151,8 @@ public class IntentService extends GcmListenerService {
 			PendingIntent contentIntent = PendingIntent.getActivity(this, new Random().nextInt(), notificationIntent, PendingIntent.FLAG_ONE_SHOT);
 
 			// Start building notification
-
-			NotificationCompat.Builder builder = new NotificationCompat.Builder(context);
+			
+			NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx);
 			int builder_defaults = 0;
 			builder.setContentIntent(contentIntent);
 			builder.setAutoCancel(true);
@@ -210,7 +210,7 @@ public class IntentService extends GcmListenerService {
 			// Badge
 			if (data != null && data.has("badge")) {
 				int badge = data.getAsJsonPrimitive("badge").getAsInt();
-				BadgeUtils.setBadge(context, badge);
+				BadgeUtils.setBadge(ctx, badge);
 				builder.setNumber(badge);
 			}
 
@@ -221,7 +221,7 @@ public class IntentService extends GcmListenerService {
 					builder_defaults |= Notification.DEFAULT_SOUND;
 				} else {
 					int resource = getResource("raw", data.getAsJsonPrimitive("sound").getAsString());
-					builder.setSound( Uri.parse("android.resource://" + context.getPackageName() + "/" + resource) );
+					builder.setSound( Uri.parse("android.resource://" + ctx.getPackageName() + "/" + resource) );
 				}
 			}
 
@@ -390,7 +390,19 @@ public class IntentService extends GcmListenerService {
 			Log.w(LCAT, "Show Notification: FALSE");
 		}
 	}
-
+	static public TaskTestResult _isInForeground() {
+		try {
+			TaskTestResult result = new ForegroundCheck().execute(
+					TiApplication.getInstance().getApplicationContext()).get();
+			return result;
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+			return null;
+		} catch (ExecutionException e) {
+			e.printStackTrace();
+			return null;
+		}
+}
 	private String getCountlyId(Bundle bundle) {
 		String id = bundle.getString("c.i");
 		return "{\"c.i\": \"" + id + "\"}";
