@@ -77,15 +77,13 @@ public class IntentService extends GcmListenerService {
 	}
 
 	private void parseNotification(Bundle bundle) {
-		
 		Context ctx = TiApplication.getInstance().getApplicationContext();
 		TiGooshModule module = TiGooshModule.getModule();
-		Boolean appInBackground = !_isInForeground().getIsForeground();
+		Boolean isAppInBackground = !testIfActivityIsTopInList().getIsForeground();
 		// Flag that determine if the message should be broadcasted to TiGooshModule and call the callback
-		Boolean sendMessage = !appInBackground;
-
+		Boolean sendMessage = !isAppInBackground;
 		// Flag to show the system alert
-		Boolean showNotification = appInBackground;
+		Boolean showNotification = isAppInBackground;
 
 		// the title and alert
 		String title = bundle.getString("title", bundle.getString("message", ""));
@@ -122,8 +120,9 @@ public class IntentService extends GcmListenerService {
 		if (alert.isEmpty()) {
 			alert = TiApplication.getInstance().getAppInfo().getName();
 		}
-
-		if (!appInBackground) {
+		// end of sanitizing
+		// here wer have title, alert and data
+		if (!isAppInBackground) {
 			if (data != null && data.has("force_show_in_foreground")) {
 				JsonPrimitive forceShowInForeground = data.getAsJsonPrimitive("force_show_in_foreground");
 				showNotification = ((forceShowInForeground.isBoolean() && forceShowInForeground.getAsBoolean() == true));
@@ -138,7 +137,7 @@ public class IntentService extends GcmListenerService {
 		}
 
 		if (sendMessage && module != null) {
-			module.sendMessage(jsonData, appInBackground);
+			module.sendMessage(jsonData, isAppInBackground);
 		}
 
 		if (showNotification) {
@@ -390,7 +389,9 @@ public class IntentService extends GcmListenerService {
 			Log.w(LCAT, "Show Notification: FALSE");
 		}
 	}
-	static public TaskTestResult _isInForeground() {
+	
+	
+	static public TaskTestResult testIfActivityIsTopInList() {
 		try {
 			TaskTestResult result = new ForegroundCheck().execute(
 					TiApplication.getInstance().getApplicationContext()).get();
