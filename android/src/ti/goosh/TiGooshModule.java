@@ -15,7 +15,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Window;
 
-
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,10 +39,10 @@ import com.google.android.gms.iid.InstanceID;
 
 import android.app.NotificationManager;
 
-@Kroll.module(name="TiGoosh", id="ti.goosh")
+@Kroll.module(name = "TiGoosh", id = "ti.goosh")
 public class TiGooshModule extends KrollModule {
 
-	private static final String LCAT = "ti.goosh.TiGooshModule";
+	public static final String LCAT = "Goosh";
 	private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
 
 	public static final String INTENT_EXTRA = "tigoosh.notification";
@@ -61,21 +60,24 @@ public class TiGooshModule extends KrollModule {
 	}
 
 	public static TiGooshModule getModule() {
-		if (module != null) return module;
-		else return new TiGooshModule();
+		if (module != null)
+			return module;
+		else
+			return new TiGooshModule();
 	}
 
 	public void parseBootIntent() {
 		try {
-			Bundle extras = TiApplication.getAppRootOrCurrentActivity().getIntent().getExtras();
+			Bundle extras = TiApplication.getAppRootOrCurrentActivity()
+					.getIntent().getExtras();
 			String notification = "";
 
 			if (extras != null) {
 				notification = extras.getString("data");
 				for (String key : extras.keySet()) {
-	                		Object value = extras.get(key);
-	                		Log.d(LCAT, "Key: " + key + " Value: " + value);
-	            		}
+					Object value = extras.get(key);
+					Log.d(LCAT, "Key: " + key + " Value: " + value);
+				}
 			}
 
 			if (!notification.isEmpty()) {
@@ -91,11 +93,14 @@ public class TiGooshModule extends KrollModule {
 	private boolean checkPlayServices() {
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
 
-		GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
-		int resultCode = apiAvailability.isGooglePlayServicesAvailable(activity);
+		GoogleApiAvailability apiAvailability = GoogleApiAvailability
+				.getInstance();
+		int resultCode = apiAvailability
+				.isGooglePlayServicesAvailable(activity);
 		if (resultCode != ConnectionResult.SUCCESS) {
 			if (apiAvailability.isUserResolvableError(resultCode)) {
-				apiAvailability.getErrorDialog(activity, resultCode, PLAY_SERVICES_RESOLUTION_REQUEST).show();
+				apiAvailability.getErrorDialog(activity, resultCode,
+						PLAY_SERVICES_RESOLUTION_REQUEST).show();
 			} else {
 				Log.e(LCAT, "This device is not supported.");
 			}
@@ -105,12 +110,15 @@ public class TiGooshModule extends KrollModule {
 	}
 
 	private NotificationManager getNotificationManager() {
-		return (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+		return (NotificationManager) TiApplication.getInstance()
+				.getApplicationContext()
+				.getSystemService(Context.NOTIFICATION_SERVICE);
 	}
 
 	@Kroll.method
 	public String getSenderId() {
-		return TiApplication.getInstance().getAppProperties().getString("gcm.senderid", "");
+		return TiApplication.getInstance().getAppProperties()
+				.getString("gcm.senderid", "");
 	}
 
 	@Kroll.method
@@ -118,41 +126,47 @@ public class TiGooshModule extends KrollModule {
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
 
 		if (false == options.containsKey("callback")) {
-			Log.e(LCAT, "You have to specify a callback attribute when calling registerForPushNotifications");
+			Log.e(LCAT,
+					"You have to specify a callback attribute when calling registerForPushNotifications");
 			return;
 		}
 
-		messageCallback = (KrollFunction)options.get("callback");
+		messageCallback = (KrollFunction) options.get("callback");
 
-		successCallback = options.containsKey("success") ? (KrollFunction)options.get("success") : null;
-		errorCallback = options.containsKey("error") ? (KrollFunction)options.get("error") : null;
+		successCallback = options.containsKey("success") ? (KrollFunction) options
+				.get("success") : null;
+		errorCallback = options.containsKey("error") ? (KrollFunction) options
+				.get("error") : null;
 
 		parseBootIntent();
 
 		if (checkPlayServices()) {
-			activity.startService( new Intent(activity, RegistrationIntentService.class) );
+			activity.startService(new Intent(activity,
+					RegistrationIntentService.class));
 		}
 	}
 
 	@Kroll.method
 	public void unregisterForPushNotifications() {
 		final String senderId = getSenderId();
-		final Context context = TiApplication.getInstance().getApplicationContext();
+		final Context context = TiApplication.getInstance()
+				.getApplicationContext();
 
 		new AsyncTask<Void, Void, Void>() {
 			@Override
 			protected Void doInBackground(Void... params) {
 				try {
-					InstanceID.getInstance(context).deleteToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE);
+					InstanceID.getInstance(context).deleteToken(senderId,
+							GoogleCloudMessaging.INSTANCE_ID_SCOPE);
 					Log.d(LCAT, "delete instanceid succeeded");
 				} catch (final IOException e) {
-					Log.e(LCAT, "remove token failed - error: " + e.getMessage());
+					Log.e(LCAT,
+							"remove token failed - error: " + e.getMessage());
 				}
 				return null;
 			}
 		}.execute();
 	}
-
 
 	@Kroll.method
 	public void cancelAll() {
@@ -183,7 +197,8 @@ public class TiGooshModule extends KrollModule {
 
 	@Kroll.method
 	public void setAppBadge(int count) {
-		BadgeUtils.setBadge(TiApplication.getInstance().getApplicationContext(), count);
+		BadgeUtils.setBadge(
+				TiApplication.getInstance().getApplicationContext(), count);
 	}
 
 	@Kroll.method
@@ -194,7 +209,8 @@ public class TiGooshModule extends KrollModule {
 	// Privates
 
 	private SharedPreferences getDefaultSharedPreferences() {
-		return PreferenceManager.getDefaultSharedPreferences(TiApplication.getInstance().getApplicationContext());
+		return PreferenceManager.getDefaultSharedPreferences(TiApplication
+				.getInstance().getApplicationContext());
 	}
 
 	private void saveToken(String token) {
@@ -231,17 +247,15 @@ public class TiGooshModule extends KrollModule {
 	}
 
 	public void sendMessage(String data, Boolean inBackground) {
-		if (messageCallback == null) {
-			Log.e(LCAT, "sendMessage invoked but no messageCallback defined");
-			return;
-		}
-
 		HashMap<String, Object> e = new HashMap<String, Object>();
 		e.put("data", data); // to parse on reverse on JS side
 		e.put("inBackground", inBackground);
 
-		messageCallback.callAsync(getKrollObject(), e);
+		if (messageCallback != null)
+			messageCallback.callAsync(getKrollObject(), e);
+		if (hasListeners("onCallback")) {
+			fireEvent("onCallback", e);
+		}
 	}
 
 }
-

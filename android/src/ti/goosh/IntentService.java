@@ -28,40 +28,56 @@ import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-
-
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.*;
 
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import com.google.android.gms.gcm.GcmListenerService;
 
 public class IntentService extends GcmListenerService {
-	private static final String LCAT = "ti.goosh.IS";
+	private static final String LCAT = "tigooshIS";
 	private static final AtomicInteger atomic = new AtomicInteger(0);
 
 	@Override
 	public void onMessageReceived(String from, Bundle bundle) {
-		Log.d(LCAT, "Push notification received from: " + from);
+		Log.d(LCAT, "Push notification received from ~~~~~~~~~~: " + from);
 		for (String key : bundle.keySet()) {
 			Object value = bundle.get(key);
-			Log.d(LCAT, String.format("Notification key : %s => %s (%s)", key, value.toString(), value.getClass().getName()));
+			Log.d(LCAT,
+					String.format("key: %s => Value: %s (%s)", key,
+							value.toString(), value.getClass().getName()));
 		}
 
-		parseNotification(bundle);
+		JSONObject message;
+		try {
+			message = (new JSONObject(bundle.getString("default")))
+					.getJSONObject("GCM").getJSONObject("data")
+					.getJSONObject("message");
+			Log.d(LCAT, message.toString());
+			parseNotification(message);
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 	}
 
 	private int getResource(String type, String name) {
 		int icon = 0;
 		if (name != null) {
 			int index = name.lastIndexOf(".");
-			if (index > 0) name = name.substring(0, index);
+			if (index > 0)
+				name = name.substring(0, index);
 			try {
 				icon = TiRHelper.getApplicationResource(type + "." + name);
 			} catch (TiRHelper.ResourceNotFoundException ex) {
-				Log.e(LCAT, type + "." + name + " not found; make sure it's in platform/android/res/" + type);
+				Log.e(LCAT, type + "." + name
+						+ " not found; make sure it's in platform/android/res/"
+						+ type);
 			}
 		}
 
@@ -69,52 +85,37 @@ public class IntentService extends GcmListenerService {
 	}
 
 	private Bitmap getBitmapFromURL(String src) throws Exception {
-		HttpURLConnection connection = (HttpURLConnection)(new URL(src)).openConnection();
+		HttpURLConnection connection = (HttpURLConnection) (new URL(src))
+				.openConnection();
 		connection.setDoInput(true);
 		connection.setUseCaches(false); // Android BUG
 		connection.connect();
-		return BitmapFactory.decodeStream( new BufferedInputStream( connection.getInputStream() ) );
+		return BitmapFactory.decodeStream(new BufferedInputStream(connection
+				.getInputStream()));
 	}
 
-	private void parseNotification(Bundle bundle) {
+	private void parseNotification(JSONObject message) {
+
 		Context ctx = TiApplication.getInstance().getApplicationContext();
 		TiGooshModule module = TiGooshModule.getModule();
-		Boolean isAppInBackground = !testIfActivityIsTopInList().getIsForeground();
-		// Flag that determine if the message should be broadcasted to TiGooshModule and call the callback
+		Boolean isAppInBackground = !testIfActivityIsTopInList()
+				.getIsForeground();
+		Log.d(LCAT, "~~~~~~~~ background=" + isAppInBackground);
+		// Flag that determine if the message should be broadcasted to
+		// TiGooshModule and call the callback
 		Boolean sendMessage = !isAppInBackground;
 		// Flag to show the system alert
 		Boolean showNotification = isAppInBackground;
 
 		// the title and alert
-		String title = bundle.getString("title", bundle.getString("message", ""));
-		String alert = bundle.getString("data", "");
-
-		// get the `data` or fallback for `custom` (OneSignal)
-
-		String jsonData = bundle.getString("data", bundle.getString("custom", getCountlyId(bundle)));
-		JsonObject data = null;
-
-		if (jsonData != null) {
-			try {
-				data = (JsonObject) new Gson().fromJson(jsonData, JsonObject.class);
-			} catch (Exception ex) {
-				Log.e(LCAT, "Error parsing data JSON: " + ex.getMessage());
-			}
-		}
-
-		// OneSignal does not send as `alert`, but `a` instead.
-		if (data != null && data.has("alert") == false && data.has("a") == true) {
-			data = data.getAsJsonObject("a");
-		}
-
-		// overwrite the alert
-		if (data != null && data.has("title")) {
-			title = data.getAsJsonPrimitive("title").getAsString();
-		}
-
-		// overwrite the alert
-		if (data != null && data.has("alert")) {
-			alert = data.getAsJsonPrimitive("alert").getAsString();
+		String title = "";
+		String alert = "";
+		try {
+			title = message.getString("title");
+			alert = message.getString("alert");
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 
 		if (alert.isEmpty()) {
@@ -123,35 +124,42 @@ public class IntentService extends GcmListenerService {
 		// end of sanitizing
 		// here wer have title, alert and data
 		if (!isAppInBackground) {
-			if (data != null && data.has("force_show_in_foreground")) {
-				JsonPrimitive forceShowInForeground = data.getAsJsonPrimitive("force_show_in_foreground");
-				showNotification = ((forceShowInForeground.isBoolean() && forceShowInForeground.getAsBoolean() == true));
+			if (message != null && message.has("force_show_in_foreground")) {
+				Boolean forceShowInForeground = false;
+				try {
+					forceShowInForeground = message
+							.getBoolean("force_show_in_foreground");
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				showNotification = (forceShowInForeground == true);
 			} else {
 				showNotification = false;
 			}
 		}
 
-		if (data != null && data.has("badge") == true) {
-			int badge = data.getAsJsonPrimitive("badge").getAsInt();
-			BadgeUtils.setBadge(ctx, badge);
-		}
-
 		if (sendMessage && module != null) {
-			module.sendMessage(jsonData, isAppInBackground);
+			// module.sendMessage(message, isAppInBackground);
 		}
 
 		if (showNotification) {
-			Log.w(LCAT, "Show Notification: TRUE");
+			Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
+			Intent notificationIntent = new Intent(this,
+					PushHandlerActivity.class);
+			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
+					| Intent.FLAG_ACTIVITY_CLEAR_TOP);
+			notificationIntent.putExtra(TiGooshModule.INTENT_EXTRA,
+					message.toString());
 
-			Intent notificationIntent = new Intent(this, PushHandlerActivity.class);
-			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-			notificationIntent.putExtra(TiGooshModule.INTENT_EXTRA, jsonData);
-
-			PendingIntent contentIntent = PendingIntent.getActivity(this, new Random().nextInt(), notificationIntent, PendingIntent.FLAG_ONE_SHOT);
+			PendingIntent contentIntent = PendingIntent.getActivity(this,
+					new Random().nextInt(), notificationIntent,
+					PendingIntent.FLAG_ONE_SHOT);
 
 			// Start building notification
-			
-			NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx);
+
+			NotificationCompat.Builder builder = new NotificationCompat.Builder(
+					ctx);
 			int builder_defaults = 0;
 			builder.setContentIntent(contentIntent);
 			builder.setAutoCancel(true);
@@ -165,20 +173,23 @@ public class IntentService extends GcmListenerService {
 			builder.setTicker(alert);
 
 			// BigText
-			if (data != null && data.has("big_text")) {
-				NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle();
-				bigTextStyle.bigText(data.getAsJsonPrimitive("big_text").getAsString());
-
-				if (data.has("big_text_summary")) {
-					bigTextStyle.setSummaryText( data.getAsJsonPrimitive("big_text_summary").getAsString() );
-				}
-
-				builder.setStyle(bigTextStyle);
-			}
+			/*
+			 * if (data != null && data.has("big_text")) {
+			 * NotificationCompat.BigTextStyle bigTextStyle = new
+			 * NotificationCompat.BigTextStyle();
+			 * bigTextStyle.bigText(data.getAsJsonPrimitive
+			 * ("big_text").getAsString());
+			 * 
+			 * if (data.has("big_text_summary")) { bigTextStyle.setSummaryText(
+			 * data.getAsJsonPrimitive("big_text_summary").getAsString() ); }
+			 * 
+			 * builder.setStyle(bigTextStyle); }
+			 */
 
 			// Icons
 			try {
-				int smallIcon = this.getResource("drawable", "notificationicon");
+				int smallIcon = this
+						.getResource("drawable", "notificationicon");
 				if (smallIcon > 0) {
 					builder.setSmallIcon(smallIcon);
 				}
@@ -187,9 +198,10 @@ public class IntentService extends GcmListenerService {
 			}
 
 			// Large icon
-			if (data != null && data.has("icon")) {
+			if (message != null && message.has("icon")) {
 				try {
-					Bitmap icon = this.getBitmapFromURL( data.getAsJsonPrimitive("icon").getAsString() );
+					Bitmap icon = this.getBitmapFromURL(message
+							.getString("icon"));
 					builder.setLargeIcon(icon);
 				} catch (Exception ex) {
 					Log.e(LCAT, "Icon exception: " + ex.getMessage());
@@ -197,165 +209,95 @@ public class IntentService extends GcmListenerService {
 			}
 
 			// Color
-			if (data != null && data.has("color")) {
-				try {
-					int color = Color.parseColor( data.getAsJsonPrimitive("color").getAsString() );
-					builder.setColor( color );
-				} catch (Exception ex) {
-					Log.e(LCAT, "Color exception: " + ex.getMessage());
-				}
-			}
+			/*
+			 * if (data != null && data.has("color")) { try { int color =
+			 * Color.parseColor( data.getAsJsonPrimitive("color").getAsString()
+			 * ); builder.setColor( color ); } catch (Exception ex) {
+			 * Log.e(LCAT, "Color exception: " + ex.getMessage()); } }
+			 */
 
 			// Badge
-			if (data != null && data.has("badge")) {
-				int badge = data.getAsJsonPrimitive("badge").getAsInt();
-				BadgeUtils.setBadge(ctx, badge);
-				builder.setNumber(badge);
+			if (message != null && message.has("badge")) {
+				int badge;
+				try {
+					badge = message.getInt("badge");
+					BadgeUtils.setBadge(ctx, badge);
+					builder.setNumber(badge);
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
 			}
 
 			// Sound
-			if (data != null && data.has("sound")) {
-				JsonPrimitive sound = data.getAsJsonPrimitive("sound");
-				if ( ("default".equals(sound.getAsString())) || (sound.isBoolean() && sound.getAsBoolean() == true) ) {
-					builder_defaults |= Notification.DEFAULT_SOUND;
-				} else {
-					int resource = getResource("raw", data.getAsJsonPrimitive("sound").getAsString());
-					builder.setSound( Uri.parse("android.resource://" + ctx.getPackageName() + "/" + resource) );
-				}
-			}
-
-			// Vibration
-			if (data != null && data.has("vibrate")) {
-				try {
-					JsonElement vibrateJson = data.get("vibrate");
-
-					if (vibrateJson.isJsonPrimitive()) {
-						JsonPrimitive vibrate = vibrateJson.getAsJsonPrimitive();
-
-						if (vibrate.isBoolean() && vibrate.getAsBoolean() == true) {
-							builder_defaults |= Notification.DEFAULT_VIBRATE;
-						}
-					} else if (vibrateJson.isJsonArray()) {
-						JsonArray vibrate = vibrateJson.getAsJsonArray();
-
-						if (vibrate.size() > 0) {
-							long[] pattern = new long[vibrate.size()];
-							int i = 0;
-
-							for(i = 0; i < vibrate.size(); i++) {
-								pattern[i] = vibrate.get(i).getAsLong();
-							}
-
-							builder.setVibrate(pattern);
-						}
-					}
-				} catch(Exception ex) {
-					Log.e(LCAT, "Vibrate exception: " + ex.getMessage());
-				}
-			}
-
-
-			// Lights
-			if (data != null && data.has("lights")) {
-				try {
-					JsonElement lightsJson = data.get("lights");
-
-					if (lightsJson.isJsonObject()) {
-						JsonObject lights = lightsJson.getAsJsonObject();
-						int argb = Color.parseColor(lights.get("argb").getAsString());
-						int onMs = lights.get("onMs").getAsInt();
-						int offMs = lights.get("offMs").getAsInt();
-
-						if (-1 != argb && -1 != onMs && -1 != offMs) {
-							builder.setLights(argb, onMs, offMs);
-						}
-					}
-				} catch(Exception ex) {
-					Log.e(LCAT, "Lights exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
+			/*
+			 * if (data != null && data.has("sound")) { JsonPrimitive sound =
+			 * data.getAsJsonPrimitive("sound"); if (
+			 * ("default".equals(sound.getAsString())) || (sound.isBoolean() &&
+			 * sound.getAsBoolean() == true) ) { builder_defaults |=
+			 * Notification.DEFAULT_SOUND; } else { int resource =
+			 * getResource("raw",
+			 * data.getAsJsonPrimitive("sound").getAsString());
+			 * builder.setSound( Uri.parse("android.resource://" +
+			 * ctx.getPackageName() + "/" + resource) ); } }
+			 * 
+			 * // Vibration if (data != null && data.has("vibrate")) { try {
+			 * JsonElement vibrateJson = data.get("vibrate");
+			 * 
+			 * if (vibrateJson.isJsonPrimitive()) { JsonPrimitive vibrate =
+			 * vibrateJson.getAsJsonPrimitive();
+			 * 
+			 * if (vibrate.isBoolean() && vibrate.getAsBoolean() == true) {
+			 * builder_defaults |= Notification.DEFAULT_VIBRATE; } } else if
+			 * (vibrateJson.isJsonArray()) { JsonArray vibrate =
+			 * vibrateJson.getAsJsonArray();
+			 * 
+			 * if (vibrate.size() > 0) { long[] pattern = new
+			 * long[vibrate.size()]; int i = 0;
+			 * 
+			 * for(i = 0; i < vibrate.size(); i++) { pattern[i] =
+			 * vibrate.get(i).getAsLong(); }
+			 * 
+			 * builder.setVibrate(pattern); } } } catch(Exception ex) {
+			 * Log.e(LCAT, "Vibrate exception: " + ex.getMessage()); } }
+			 */
+			/*
+			 * // Lights if (data != null && data.has("lights")) { try {
+			 * JsonElement lightsJson = data.get("lights");
+			 * 
+			 * if (lightsJson.isJsonObject()) { JsonObject lights =
+			 * lightsJson.getAsJsonObject(); int argb =
+			 * Color.parseColor(lights.get("argb").getAsString()); int onMs =
+			 * lights.get("onMs").getAsInt(); int offMs =
+			 * lights.get("offMs").getAsInt();
+			 * 
+			 * if (-1 != argb && -1 != onMs && -1 != offMs) {
+			 * builder.setLights(argb, onMs, offMs); } } } catch(Exception ex) {
+			 * Log.e(LCAT, "Lights exception: " + ex.getMessage()); } } else {
+			 * builder_defaults |= Notification.DEFAULT_LIGHTS; }
+			 */
 
 			// Ongoing
-			if (data != null && data.has("ongoing")) {
+			if (message != null && message.has("ongoing")) {
 				try {
-					JsonElement ongoingJson = data.get("ongoing");
+					Boolean ongoing = message.getBoolean("ongoing");
 
-					if (ongoingJson.isJsonPrimitive()) {
-						Boolean ongoing = ongoingJson.getAsBoolean();
-						builder.setOngoing(ongoing);
-					}
+					builder.setOngoing(ongoing);
 
-				} catch(Exception ex) {
+				} catch (Exception ex) {
 					Log.e(LCAT, "Ongoing exception: " + ex.getMessage());
 				}
 			} else {
 				builder_defaults |= Notification.DEFAULT_LIGHTS;
 			}
 
-			// Group
-			if (data != null && data.has("group")) {
-				try {
-					JsonElement groupJson = data.get("group");
-
-					if (groupJson.isJsonPrimitive()) {
-						String group = groupJson.getAsString();
-						builder.setGroup(group);
-					}
-				} catch(Exception ex) {
-					Log.e(LCAT, "Group exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
-
-			// GroupSummary
-			if (data != null && data.has("group_summary")) {
-				try {
-					JsonElement groupsumJson = data.get("group_summary");
-
-					if (groupsumJson.isJsonPrimitive()) {
-						Boolean groupsum = groupsumJson.getAsBoolean();
-						builder.setGroupSummary(groupsum);
-					}
-				} catch(Exception ex) {
-					Log.e(LCAT, "Group summary exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
-
-			// When
-			if (data != null && data.has("when")) {
-				try {
-					JsonElement whenJson = data.get("when");
-
-					if (whenJson.isJsonPrimitive()) {
-						int when = whenJson.getAsInt();
-						builder.setWhen(when);
-					}
-				} catch(Exception ex) {
-					Log.e(LCAT, "When exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
-
 			// Only alert once
-			if (data != null && data.has("only_alert_once")) {
+			if (message != null && message.has("only_alert_once")) {
 				try {
-					JsonElement oaoJson = data.get("only_alert_once");
+					Boolean oaoJson = message.getBoolean("only_alert_once");
 
-					if (oaoJson.isJsonPrimitive()) {
-						Boolean oao = oaoJson.getAsBoolean();
-						builder.setOnlyAlertOnce(oao);
-					}
-				} catch(Exception ex) {
+				} catch (Exception ex) {
 					Log.e(LCAT, "Only alert once exception: " + ex.getMessage());
 				}
 			} else {
@@ -365,32 +307,32 @@ public class IntentService extends GcmListenerService {
 			// Builder defaults OR
 			builder.setDefaults(builder_defaults);
 
-
 			// Tag
-			String tag = null;
-			if (data != null && data.has("tag")) {
-				tag = data.getAsJsonPrimitive("tag").getAsString();
+			String tag = "";
+			if (message != null && message.has("tag")) {
+				try {
+					tag = message.getString("tag");
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 
 			// Nid
 			int id = 0;
-			if (data != null && data.has("id")) {
-				// ensure that the id sent from the server is negative to prevent
-				// collision with the atomic integer
-				id = -1 * Math.abs(data.getAsJsonPrimitive("id").getAsInt());
-			} else {
-				id = atomic.getAndIncrement();
-			}
+
+			id = atomic.getAndIncrement();
 
 			// Send
-			NotificationManager notificationManager = (NotificationManager)TiApplication.getInstance().getSystemService(Context.NOTIFICATION_SERVICE);
+			NotificationManager notificationManager = (NotificationManager) TiApplication
+					.getInstance().getSystemService(
+							Context.NOTIFICATION_SERVICE);
 			notificationManager.notify(tag, id, builder.build());
 		} else {
 			Log.w(LCAT, "Show Notification: FALSE");
 		}
 	}
-	
-	
+
 	static public TaskTestResult testIfActivityIsTopInList() {
 		try {
 			TaskTestResult result = new ForegroundCheck().execute(
@@ -403,7 +345,8 @@ public class IntentService extends GcmListenerService {
 			e.printStackTrace();
 			return null;
 		}
-}
+	}
+
 	private String getCountlyId(Bundle bundle) {
 		String id = bundle.getString("c.i");
 		return "{\"c.i\": \"" + id + "\"}";

@@ -1,5 +1,5 @@
 
-2017-08-10 17:03:54
+2017-08-14 21:50:34
 
 Operating System
   Name                        = Mac OS X
@@ -1169,4 +1169,4 @@ Compiling all java source files generated
 [INFO]   Packaging the module
 [INFO]   Creating module zip
 [INFO]   Writing module zip: /Users/fuerst/Documents/MLearning/ti.goosh/android/dist/ti.goosh-android-2.0.10.zip
-[INFO]   Project built successfully in 9s 873ms
+[INFO]   Project built successfully in 10s 892ms
