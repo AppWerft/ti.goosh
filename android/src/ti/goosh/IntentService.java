@@ -145,10 +145,16 @@ public class IntentService extends GcmListenerService {
 
 		if (showNotification) {
 			Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
-			Intent notificationIntent = new Intent(this,
-					PushHandlerActivity.class);
-			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
-					| Intent.FLAG_ACTIVITY_CLEAR_TOP);
+			Intent notificationIntent = new Intent(Intent.ACTION_MAIN);
+			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
+					| Intent.FLAG_ACTIVITY_NEW_TASK);
+			String packageName = TiApplication.getInstance().getPackageName();
+			String className = packageName
+					+ "."
+					+ TiApplication.getAppRootOrCurrentActivity()
+							.getLocalClassName();
+			Log.d(LCAT, "className=" + className);
+	intent.setComponent(new ComponentName(packageName, className));
 			notificationIntent.putExtra(TiGooshModule.INTENT_EXTRA,
 					message.toString());
 
