@@ -17,6 +17,7 @@ import java.util.Random;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -54,6 +55,7 @@ public class IntentService extends GcmListenerService {
 
 		JSONObject message;
 		try {
+			// AWS:
 			message = (new JSONObject(bundle.getString("default")))
 					.getJSONObject("GCM").getJSONObject("data")
 					.getJSONObject("message");
@@ -154,7 +156,7 @@ public class IntentService extends GcmListenerService {
 					+ TiApplication.getAppRootOrCurrentActivity()
 							.getLocalClassName();
 			Log.d(LCAT, "className=" + className);
-	intent.setComponent(new ComponentName(packageName, className));
+			notificationIntent.setComponent(new ComponentName(packageName, className));
 			notificationIntent.putExtra(TiGooshModule.INTENT_EXTRA,
 					message.toString());
 
