@@ -1,18 +1,16 @@
 package ti.goosh;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.io.IOException;
-import java.net.URL;
-import java.net.HttpURLConnection;
-import java.io.InputStream;
 import java.io.BufferedInputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.lang.reflect.Type;
-import java.lang.Math;
-import java.util.Random;
+
+import org.appcelerator.titanium.TiApplication;
+import org.appcelerator.titanium.util.TiRHelper;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -22,22 +20,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.*;
-
-import org.appcelerator.titanium.TiApplication;
-import org.appcelerator.titanium.util.TiRHelper;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import com.google.android.gms.gcm.GcmListenerService;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class IntentService extends GcmListenerService {
 	private static final String LCAT = "tigooshIS";
@@ -95,9 +85,190 @@ public class IntentService extends GcmListenerService {
 		return BitmapFactory.decodeStream(new BufferedInputStream(connection
 				.getInputStream()));
 	}
+	private void showNotification(Context ctx,JSONObject message){
+		String title = "";
+		String alert = "";
+		try {
+			title = message.getString("title");
+			alert = message.getString("alert");
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
+		// build the manager:
+		NotificationManager notificationManager = (NotificationManager) TiApplication
+				.getInstance().getSystemService(
+						Context.NOTIFICATION_SERVICE);
+		/* Preparing click on notification: */
+		Intent intent = new Intent(Intent.ACTION_MAIN);
+		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
+				| Intent.FLAG_ACTIVITY_NEW_TASK);
+		String packageName = TiApplication.getInstance().getPackageName();
+		String className = packageName
+				+ "."
+				+ TiApplication.getAppRootOrCurrentActivity()
+						.getLocalClassName();
+		Log.d(LCAT, "className=" + className);
+		intent.setComponent(new ComponentName(packageName,
+				className));
+		intent.putExtra(TiGooshModule.INTENT_EXTRA,
+				message.toString());
 
+		PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 1,
+				intent, PendingIntent.FLAG_UPDATE_CURRENT); // new
+																		// Random().nextInt()
+
+		// Start building notification
+
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(
+				ctx);
+		int builder_defaults = 0;
+		builder.setContentIntent(pendingIntent);
+		builder.setAutoCancel(false);
+		builder.setPriority(NotificationCompat.PRIORITY_HIGH);
+
+		// Title
+		builder.setContentTitle(title);
+
+		// alert
+		builder.setContentText(alert);
+		builder.setTicker(alert);
+
+		// BigText
+
+		if (message != null && message.has("big_text")) {
+			NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle();
+			try {
+				bigTextStyle.bigText(message.getString("big_text"));
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if (message.has("big_text_summary")) {
+				try {
+					bigTextStyle.setSummaryText(message
+							.getString("big_text_summary"));
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+			builder.setStyle(bigTextStyle);
+		}
+
+		// Icons
+		try {
+			int smallIcon = this
+					.getResource("drawable", "notificationicon");
+			if (smallIcon > 0) {
+				builder.setSmallIcon(smallIcon);
+			}
+		} catch (Exception ex) {
+			Log.e(LCAT, "Smallicon exception: " + ex.getMessage());
+		}
+
+		// Large icon
+		if (message != null && message.has("icon")) {
+			try {
+				Bitmap icon = this.getBitmapFromURL(message
+						.getString("icon"));
+				builder.setLargeIcon(icon);
+			} catch (Exception ex) {
+				Log.e(LCAT, "Icon exception: " + ex.getMessage());
+			}
+		}
+
+		// Color
+		/*
+		 * if (data != null && data.has("color")) { try { int color =
+		 * Color.parseColor( data.getAsJsonPrimitive("color").getAsString()
+		 * ); builder.setColor( color ); } catch (Exception ex) {
+		 * Log.e(LCAT, "Color exception: " + ex.getMessage()); } }
+		 */
+
+		// Badge
+		if (message != null && message.has("badge")) {
+			int badge;
+			try {
+				badge = message.getInt("badge");
+				BadgeUtils.setBadge(ctx, badge);
+				builder.setNumber(badge);
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
+
+		// Sound
+		if (message != null && message.has("sound")) {
+			Object sound;
+			try {
+				sound = message.get("sound");
+				if (sound instanceof Boolean && (((Boolean) sound) == true)
+						|| (sound instanceof String)
+						&& (((String) sound).equals("default"))) {
+					builder_defaults |= Notification.DEFAULT_SOUND;
+				} else if (sound instanceof String) {
+					int resource = getResource("raw", (String) sound);
+					builder.setSound(Uri.parse("android.resource://"
+							+ ctx.getPackageName() + "/" + resource));
+				}
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
+
+		// Ongoing
+		if (message != null && message.has("ongoing")) {
+			try {
+				Boolean ongoing = message.getBoolean("ongoing");
+				builder.setOngoing(ongoing);
+			} catch (Exception ex) {
+				Log.e(LCAT, "Ongoing exception: " + ex.getMessage());
+			}
+		} else {
+			builder_defaults |= Notification.DEFAULT_LIGHTS;
+		}
+		// Only alert once
+		if (message != null && message.has("only_alert_once")) {
+			try {
+				Boolean oaoJson = message.getBoolean("only_alert_once");
+			} catch (Exception ex) {
+				Log.e(LCAT, "Only alert once exception: " + ex.getMessage());
+			}
+		} else {
+			builder_defaults |= Notification.DEFAULT_LIGHTS;
+		}
+
+		// Builder defaults OR
+		builder.setDefaults(builder_defaults);
+
+		// Tag
+		String tag = "";
+		if (message != null && message.has("tag")) {
+			try {
+				tag = message.getString("tag");
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		// Nid
+		int id = 0;
+
+		id = atomic.getAndIncrement();
+
+		// Send
+		notificationManager.notify(tag, id, builder.build());
+		
+	}
 	private void parseNotification(JSONObject message) {
-
 		Context ctx = TiApplication.getInstance().getApplicationContext();
 		TiGooshModule module = TiGooshModule.getModule();
 		Boolean isAppInBackground = !testIfActivityIsTopInList()
@@ -142,200 +313,12 @@ public class IntentService extends GcmListenerService {
 		}
 
 		if (sendMessage && module != null) {
-			// module.sendMessage(message, isAppInBackground);
+			module.sendMessage(message.toString(), isAppInBackground);
 		}
 
 		if (showNotification) {
-			Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
-			Intent notificationIntent = new Intent(Intent.ACTION_MAIN);
-			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
-					| Intent.FLAG_ACTIVITY_NEW_TASK);
-			String packageName = TiApplication.getInstance().getPackageName();
-			String className = packageName
-					+ "."
-					+ TiApplication.getAppRootOrCurrentActivity()
-							.getLocalClassName();
-			Log.d(LCAT, "className=" + className);
-			notificationIntent.setComponent(new ComponentName(packageName, className));
-			notificationIntent.putExtra(TiGooshModule.INTENT_EXTRA,
-					message.toString());
-
-			PendingIntent contentIntent = PendingIntent.getActivity(this,
-					new Random().nextInt(), notificationIntent,
-					PendingIntent.FLAG_ONE_SHOT);
-
-			// Start building notification
-
-			NotificationCompat.Builder builder = new NotificationCompat.Builder(
-					ctx);
-			int builder_defaults = 0;
-			builder.setContentIntent(contentIntent);
-			builder.setAutoCancel(true);
-			builder.setPriority(2);
-
-			// Title
-			builder.setContentTitle(title);
-
-			// alert
-			builder.setContentText(alert);
-			builder.setTicker(alert);
-
-			// BigText
-			/*
-			 * if (data != null && data.has("big_text")) {
-			 * NotificationCompat.BigTextStyle bigTextStyle = new
-			 * NotificationCompat.BigTextStyle();
-			 * bigTextStyle.bigText(data.getAsJsonPrimitive
-			 * ("big_text").getAsString());
-			 * 
-			 * if (data.has("big_text_summary")) { bigTextStyle.setSummaryText(
-			 * data.getAsJsonPrimitive("big_text_summary").getAsString() ); }
-			 * 
-			 * builder.setStyle(bigTextStyle); }
-			 */
-
-			// Icons
-			try {
-				int smallIcon = this
-						.getResource("drawable", "notificationicon");
-				if (smallIcon > 0) {
-					builder.setSmallIcon(smallIcon);
-				}
-			} catch (Exception ex) {
-				Log.e(LCAT, "Smallicon exception: " + ex.getMessage());
-			}
-
-			// Large icon
-			if (message != null && message.has("icon")) {
-				try {
-					Bitmap icon = this.getBitmapFromURL(message
-							.getString("icon"));
-					builder.setLargeIcon(icon);
-				} catch (Exception ex) {
-					Log.e(LCAT, "Icon exception: " + ex.getMessage());
-				}
-			}
-
-			// Color
-			/*
-			 * if (data != null && data.has("color")) { try { int color =
-			 * Color.parseColor( data.getAsJsonPrimitive("color").getAsString()
-			 * ); builder.setColor( color ); } catch (Exception ex) {
-			 * Log.e(LCAT, "Color exception: " + ex.getMessage()); } }
-			 */
-
-			// Badge
-			if (message != null && message.has("badge")) {
-				int badge;
-				try {
-					badge = message.getInt("badge");
-					BadgeUtils.setBadge(ctx, badge);
-					builder.setNumber(badge);
-				} catch (JSONException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-			}
-
-			// Sound
-			/*
-			 * if (data != null && data.has("sound")) { JsonPrimitive sound =
-			 * data.getAsJsonPrimitive("sound"); if (
-			 * ("default".equals(sound.getAsString())) || (sound.isBoolean() &&
-			 * sound.getAsBoolean() == true) ) { builder_defaults |=
-			 * Notification.DEFAULT_SOUND; } else { int resource =
-			 * getResource("raw",
-			 * data.getAsJsonPrimitive("sound").getAsString());
-			 * builder.setSound( Uri.parse("android.resource://" +
-			 * ctx.getPackageName() + "/" + resource) ); } }
-			 * 
-			 * // Vibration if (data != null && data.has("vibrate")) { try {
-			 * JsonElement vibrateJson = data.get("vibrate");
-			 * 
-			 * if (vibrateJson.isJsonPrimitive()) { JsonPrimitive vibrate =
-			 * vibrateJson.getAsJsonPrimitive();
-			 * 
-			 * if (vibrate.isBoolean() && vibrate.getAsBoolean() == true) {
-			 * builder_defaults |= Notification.DEFAULT_VIBRATE; } } else if
-			 * (vibrateJson.isJsonArray()) { JsonArray vibrate =
-			 * vibrateJson.getAsJsonArray();
-			 * 
-			 * if (vibrate.size() > 0) { long[] pattern = new
-			 * long[vibrate.size()]; int i = 0;
-			 * 
-			 * for(i = 0; i < vibrate.size(); i++) { pattern[i] =
-			 * vibrate.get(i).getAsLong(); }
-			 * 
-			 * builder.setVibrate(pattern); } } } catch(Exception ex) {
-			 * Log.e(LCAT, "Vibrate exception: " + ex.getMessage()); } }
-			 */
-			/*
-			 * // Lights if (data != null && data.has("lights")) { try {
-			 * JsonElement lightsJson = data.get("lights");
-			 * 
-			 * if (lightsJson.isJsonObject()) { JsonObject lights =
-			 * lightsJson.getAsJsonObject(); int argb =
-			 * Color.parseColor(lights.get("argb").getAsString()); int onMs =
-			 * lights.get("onMs").getAsInt(); int offMs =
-			 * lights.get("offMs").getAsInt();
-			 * 
-			 * if (-1 != argb && -1 != onMs && -1 != offMs) {
-			 * builder.setLights(argb, onMs, offMs); } } } catch(Exception ex) {
-			 * Log.e(LCAT, "Lights exception: " + ex.getMessage()); } } else {
-			 * builder_defaults |= Notification.DEFAULT_LIGHTS; }
-			 */
-
-			// Ongoing
-			if (message != null && message.has("ongoing")) {
-				try {
-					Boolean ongoing = message.getBoolean("ongoing");
-
-					builder.setOngoing(ongoing);
-
-				} catch (Exception ex) {
-					Log.e(LCAT, "Ongoing exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
-			// Only alert once
-			if (message != null && message.has("only_alert_once")) {
-				try {
-					Boolean oaoJson = message.getBoolean("only_alert_once");
-
-				} catch (Exception ex) {
-					Log.e(LCAT, "Only alert once exception: " + ex.getMessage());
-				}
-			} else {
-				builder_defaults |= Notification.DEFAULT_LIGHTS;
-			}
-
-			// Builder defaults OR
-			builder.setDefaults(builder_defaults);
-
-			// Tag
-			String tag = "";
-			if (message != null && message.has("tag")) {
-				try {
-					tag = message.getString("tag");
-				} catch (JSONException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-
-			// Nid
-			int id = 0;
-
-			id = atomic.getAndIncrement();
-
-			// Send
-			NotificationManager notificationManager = (NotificationManager) TiApplication
-					.getInstance().getSystemService(
-							Context.NOTIFICATION_SERVICE);
-			notificationManager.notify(tag, id, builder.build());
+			showNotification(ctx,message);
+			
 		} else {
 			Log.w(LCAT, "Show Notification: FALSE");
 		}

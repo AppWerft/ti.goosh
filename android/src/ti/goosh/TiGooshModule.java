@@ -232,6 +232,7 @@ public class TiGooshModule extends KrollModule {
 		e.put("deviceToken", token);
 
 		successCallback.callAsync(getKrollObject(), e);
+		
 	}
 
 	public void sendError(Exception ex) {
