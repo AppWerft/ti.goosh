@@ -1,17 +1,24 @@
 package ti.goosh;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.io.TiFileFactory;
 import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiRHelper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.util.Log;
 
 public class GCMParameters {
 	private String subject = "Subject";
@@ -21,6 +28,8 @@ public class GCMParameters {
 	private String sound;
 	private String channel = "default";
 	private String icon = "";
+	private int notificationicon;
+	
 	private int color = Color.GRAY;
 	private Boolean ongoing = false;
 	private Boolean only_alert_once = false;
@@ -112,6 +121,11 @@ public class GCMParameters {
 		}
 		if (options.containsKeyAndNotNull("force_show_in_foreground")) {
 			this.force_show_in_foreground = defaults.getBoolean("force_show_in_foreground");
+		}
+		
+		
+		if (options.containsKeyAndNotNull("notificationicon")) {
+			this.notificationicon = defaults.getInt("notificationicon");
 		}	
 		
 	}
@@ -200,5 +214,30 @@ public class GCMParameters {
 			e.printStackTrace();
 			return null;
 		}
+	}
+	private Bitmap getBitmapFromURL(String src) throws Exception {
+		HttpURLConnection connection = (HttpURLConnection) (new URL(src))
+				.openConnection();
+		connection.setDoInput(true);
+		connection.setUseCaches(false); // Android BUG
+		connection.connect();
+		return BitmapFactory.decodeStream(new BufferedInputStream(connection
+				.getInputStream()));
+	}
+	
+	private int getResource(String type, String name) {
+		int icon = 0;
+		if (name != null) {
+			int index = name.lastIndexOf(".");
+			if (index > 0)
+				name = name.substring(0, index);
+			try {
+				icon = TiRHelper.getApplicationResource(type + "." + name);
+			} catch (TiRHelper.ResourceNotFoundException ex) {
+				
+			}
+		}
+
+		return icon;
 	}
 }
