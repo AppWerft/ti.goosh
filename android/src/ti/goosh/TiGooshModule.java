@@ -19,6 +19,7 @@ import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.KrollFunction;
@@ -26,13 +27,15 @@ import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.TiConfig;
 import org.appcelerator.titanium.TiApplication;
+import org.appcelerator.titanium.io.TiFileFactory;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-
 import com.google.android.gms.gcm.GcmPubSub;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.android.gms.iid.InstanceID;
@@ -53,12 +56,20 @@ public class TiGooshModule extends KrollModule {
 	private KrollFunction successCallback = null;
 	private KrollFunction errorCallback = null;
 	private KrollFunction messageCallback = null;
+	public GCMParameters  gcmParameters;
 
 	public TiGooshModule() {
 		super();
 		module = this;
 	}
 
+	@Kroll.onAppCreate
+	public static void onAppCreate(TiApplication app) {
+		
+
+	}
+	
+	
 	public static TiGooshModule getModule() {
 		if (module != null)
 			return module;
@@ -124,26 +135,30 @@ public class TiGooshModule extends KrollModule {
 	@Kroll.method
 	public void registerForPushNotifications(HashMap options) {
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
-
 		if (false == options.containsKey("callback")) {
 			Log.e(LCAT,
 					"You have to specify a callback attribute when calling registerForPushNotifications");
 			return;
 		}
-
 		messageCallback = (KrollFunction) options.get("callback");
-
 		successCallback = options.containsKey("success") ? (KrollFunction) options
 				.get("success") : null;
 		errorCallback = options.containsKey("error") ? (KrollFunction) options
 				.get("error") : null;
-
 		parseBootIntent();
-
 		if (checkPlayServices()) {
 			activity.startService(new Intent(activity,
 					RegistrationIntentService.class));
 		}
+		try {
+			gcmParameters = new GCMParameters(new KrollDict(options)); // will import stuff from json
+			
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
 	}
 
 	@Kroll.method
@@ -232,7 +247,7 @@ public class TiGooshModule extends KrollModule {
 		e.put("deviceToken", token);
 
 		successCallback.callAsync(getKrollObject(), e);
-		
+
 	}
 
 	public void sendError(Exception ex) {
@@ -258,5 +273,7 @@ public class TiGooshModule extends KrollModule {
 			fireEvent("onCallback", e);
 		}
 	}
+	
+	
 
 }

@@ -7,6 +7,8 @@ import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+
+import org.appcelerator.titanium.TiActivity;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
 import org.json.JSONException;
@@ -20,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
@@ -46,11 +49,13 @@ public class IntentService extends GcmListenerService {
 		JSONObject message;
 		try {
 			// AWS:
-			message = (new JSONObject(bundle.getString("default")))
-					.getJSONObject("GCM").getJSONObject("data")
-					.getJSONObject("message");
-			Log.d(LCAT, message.toString());
-			parseNotification(message);
+			if (bundle.containsKey("default")) {
+				message = (new JSONObject(bundle.getString("default")))
+						.getJSONObject("gcm");
+				Log.d(LCAT, message.toString());
+				parseNotification(message);
+			} else {
+			}
 		} catch (JSONException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -85,7 +90,8 @@ public class IntentService extends GcmListenerService {
 		return BitmapFactory.decodeStream(new BufferedInputStream(connection
 				.getInputStream()));
 	}
-	private void showNotification(Context ctx,JSONObject message){
+
+	private void showNotification(Context ctx, JSONObject message) {
 		String title = "";
 		String alert = "";
 		try {
@@ -96,35 +102,27 @@ public class IntentService extends GcmListenerService {
 			e.printStackTrace();
 		}
 		Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
+		/* Create intent to (re)start the app's root activity (from gcmpush)*/
+		String pkg = ctx.getPackageName();
+        Intent launcherIntent = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
+        launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+		PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 0, launcherIntent,
+				Intent.FLAG_ACTIVITY_NEW_TASK);
+		
 		// build the manager:
 		NotificationManager notificationManager = (NotificationManager) TiApplication
-				.getInstance().getSystemService(
-						Context.NOTIFICATION_SERVICE);
-		/* Preparing click on notification: */
-		Intent intent = new Intent(Intent.ACTION_MAIN);
-		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
-				| Intent.FLAG_ACTIVITY_NEW_TASK);
-		String packageName = TiApplication.getInstance().getPackageName();
-		String className = packageName
-				+ "."
-				+ TiApplication.getAppRootOrCurrentActivity()
-						.getLocalClassName();
-		Log.d(LCAT, "className=" + className);
-		intent.setComponent(new ComponentName(packageName,
-				className));
-		intent.putExtra(TiGooshModule.INTENT_EXTRA,
-				message.toString());
+				.getInstance().getSystemService(Context.NOTIFICATION_SERVICE);
+			launcherIntent.putExtra(TiGooshModule.INTENT_EXTRA, message.toString());
 
-		PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 1,
-				intent, PendingIntent.FLAG_UPDATE_CURRENT); // new
-																		// Random().nextInt()
-
+	
 		// Start building notification
 
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(
-				ctx);
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx);
 		int builder_defaults = 0;
+		// adding pendingIntent
 		builder.setContentIntent(pendingIntent);
+
 		builder.setAutoCancel(false);
 		builder.setPriority(NotificationCompat.PRIORITY_HIGH);
 
@@ -160,8 +158,7 @@ public class IntentService extends GcmListenerService {
 
 		// Icons
 		try {
-			int smallIcon = this
-					.getResource("drawable", "notificationicon");
+			int smallIcon = this.getResource("drawable", "notificationicon");
 			if (smallIcon > 0) {
 				builder.setSmallIcon(smallIcon);
 			}
@@ -172,8 +169,7 @@ public class IntentService extends GcmListenerService {
 		// Large icon
 		if (message != null && message.has("icon")) {
 			try {
-				Bitmap icon = this.getBitmapFromURL(message
-						.getString("icon"));
+				Bitmap icon = this.getBitmapFromURL(message.getString("icon"));
 				builder.setLargeIcon(icon);
 			} catch (Exception ex) {
 				Log.e(LCAT, "Icon exception: " + ex.getMessage());
@@ -181,12 +177,15 @@ public class IntentService extends GcmListenerService {
 		}
 
 		// Color
-		/*
-		 * if (data != null && data.has("color")) { try { int color =
-		 * Color.parseColor( data.getAsJsonPrimitive("color").getAsString()
-		 * ); builder.setColor( color ); } catch (Exception ex) {
-		 * Log.e(LCAT, "Color exception: " + ex.getMessage()); } }
-		 */
+
+		if (message != null && message.has("color")) {
+			try {
+				int color = Color.parseColor(message.getString("color"));
+				builder.setColor(color);
+			} catch (Exception ex) {
+				Log.e(LCAT, "Color exception: " + ex.getMessage());
+			}
+		}
 
 		// Badge
 		if (message != null && message.has("badge")) {
@@ -266,8 +265,9 @@ public class IntentService extends GcmListenerService {
 
 		// Send
 		notificationManager.notify(tag, id, builder.build());
-		
+
 	}
+
 	private void parseNotification(JSONObject message) {
 		Context ctx = TiApplication.getInstance().getApplicationContext();
 		TiGooshModule module = TiGooshModule.getModule();
@@ -281,20 +281,7 @@ public class IntentService extends GcmListenerService {
 		Boolean showNotification = isAppInBackground;
 
 		// the title and alert
-		String title = "";
-		String alert = "";
-		try {
-			title = message.getString("title");
-			alert = message.getString("alert");
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 
-		if (alert.isEmpty()) {
-			alert = TiApplication.getInstance().getAppInfo().getName();
-		}
-		// end of sanitizing
 		// here wer have title, alert and data
 		if (!isAppInBackground) {
 			if (message != null && message.has("force_show_in_foreground")) {
@@ -311,14 +298,15 @@ public class IntentService extends GcmListenerService {
 				showNotification = false;
 			}
 		}
-
+		
+        TiApplication.getInstance().getAppProperties().setString("GCM_LAST_DATA", message.toString());
 		if (sendMessage && module != null) {
 			module.sendMessage(message.toString(), isAppInBackground);
 		}
 
 		if (showNotification) {
-			showNotification(ctx,message);
-			
+			showNotification(ctx, message);
+
 		} else {
 			Log.w(LCAT, "Show Notification: FALSE");
 		}
