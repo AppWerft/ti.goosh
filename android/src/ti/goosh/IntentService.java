@@ -7,7 +7,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
+import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.titanium.TiActivity;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
@@ -20,6 +20,7 @@ import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -53,7 +54,10 @@ public class IntentService extends GcmListenerService {
 				message = (new JSONObject(bundle.getString("default")))
 						.getJSONObject("gcm");
 				Log.d(LCAT, message.toString());
+				GCMQueue db= new GCMQueue();
+				db.insertMessage(message);
 				parseNotification(message);
+
 			} else {
 			}
 		} catch (JSONException e) {
@@ -102,20 +106,20 @@ public class IntentService extends GcmListenerService {
 			e.printStackTrace();
 		}
 		Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
-		/* Create intent to (re)start the app's root activity (from gcmpush)*/
+		/* Create intent to (re)start the app's root activity (from gcmpush) */
 		String pkg = ctx.getPackageName();
-        Intent launcherIntent = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
-        launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-		PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 0, launcherIntent,
-				Intent.FLAG_ACTIVITY_NEW_TASK);
-		
+		Intent launcherIntent = ctx.getPackageManager()
+				.getLaunchIntentForPackage(pkg);
+		launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+		launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+		PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 0,
+				launcherIntent, Intent.FLAG_ACTIVITY_NEW_TASK);
+
 		// build the manager:
 		NotificationManager notificationManager = (NotificationManager) TiApplication
 				.getInstance().getSystemService(Context.NOTIFICATION_SERVICE);
-			launcherIntent.putExtra(TiGooshModule.INTENT_EXTRA, message.toString());
+		launcherIntent.putExtra(TiGooshModule.INTENT_EXTRA, message.toString());
 
-	
 		// Start building notification
 
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx);
@@ -298,8 +302,16 @@ public class IntentService extends GcmListenerService {
 				showNotification = false;
 			}
 		}
-		
-        TiApplication.getInstance().getAppProperties().setString("GCM_LAST_DATA", message.toString());
+		try {
+			TiGooshModule.getModule().lastData = new KrollDict(message);
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		TiApplication.getInstance().getAppProperties()
+				.setString("GCM_LAST_DATA", message.toString());
+
 		if (sendMessage && module != null) {
 			module.sendMessage(message.toString(), isAppInBackground);
 		}

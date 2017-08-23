@@ -24,7 +24,7 @@ public class GCMParameters {
 	private String subject = "Subject";
 	private String alert = "Alert";
 	private String title = "Title";
-	private String priority = "hight";
+	private String priority = "high";
 	private String sound;
 	private String channel = "default";
 	private String icon = "";
@@ -123,7 +123,6 @@ public class GCMParameters {
 			this.force_show_in_foreground = defaults.getBoolean("force_show_in_foreground");
 		}
 		
-		
 		if (options.containsKeyAndNotNull("notificationicon")) {
 			this.notificationicon = defaults.getInt("notificationicon");
 		}	
@@ -192,7 +191,6 @@ public class GCMParameters {
 
 	public JSONObject loadJSONFromAsset() {
 		String json = null;
-
 		try {
 			String url = TiGooshModule.getModule().resolveUrl(null,
 					"gcm.defaults.json");

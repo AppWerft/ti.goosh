@@ -21,6 +21,7 @@
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/BroadcastReceiver.java"
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/ForegroundCheck.java"
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/GCMParameters.java"
+"/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/GCMQueue.java"
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/InstanceIDListener.java"
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/IntentService.java"
 "/Users/fuerst/Documents/MLearning/ti.goosh/android/src/ti/goosh/PushHandlerActivity.java"

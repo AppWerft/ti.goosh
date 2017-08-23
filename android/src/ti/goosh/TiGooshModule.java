@@ -57,6 +57,8 @@ public class TiGooshModule extends KrollModule {
 	private KrollFunction errorCallback = null;
 	private KrollFunction messageCallback = null;
 	public GCMParameters  gcmParameters;
+	private static TiApplication app;
+	public KrollDict lastData;
 
 	public TiGooshModule() {
 		super();
@@ -64,8 +66,8 @@ public class TiGooshModule extends KrollModule {
 	}
 
 	@Kroll.onAppCreate
-	public static void onAppCreate(TiApplication app) {
-		
+	public static void onAppCreate(TiApplication _app) {
+		app=_app;
 
 	}
 	
@@ -131,9 +133,15 @@ public class TiGooshModule extends KrollModule {
 		return TiApplication.getInstance().getAppProperties()
 				.getString("gcm.senderid", "");
 	}
-
+	
+	@Kroll.method
+	public KrollDict getLastData() {
+		return lastData;
+	}
+	
 	@Kroll.method
 	public void registerForPushNotifications(HashMap options) {
+		new GCMQueue();
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
 		if (false == options.containsKey("callback")) {
 			Log.e(LCAT,
@@ -150,13 +158,13 @@ public class TiGooshModule extends KrollModule {
 			activity.startService(new Intent(activity,
 					RegistrationIntentService.class));
 		}
-		try {
+		
+		/*try {
 			gcmParameters = new GCMParameters(new KrollDict(options)); // will import stuff from json
 			
 		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+			
+		}*/
 		
 		
 	}
@@ -266,7 +274,7 @@ public class TiGooshModule extends KrollModule {
 		HashMap<String, Object> e = new HashMap<String, Object>();
 		e.put("data", data); // to parse on reverse on JS side
 		e.put("inBackground", inBackground);
-
+		app.fireAppEvent("gcm",new KrollDict(e));
 		if (messageCallback != null)
 			messageCallback.callAsync(getKrollObject(), e);
 		if (hasListeners("onCallback")) {
