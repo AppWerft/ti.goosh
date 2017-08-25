@@ -55,7 +55,7 @@ public class IntentService extends GcmListenerService {
 						.getJSONObject("gcm");
 				Log.d(LCAT, message.toString());
 				GCMQueue db= new GCMQueue();
-				db.insertMessage(message);
+				db.insertMessage(bundle.getString("google.message_id"),bundle.getLong("google.sent_time"),message);
 				parseNotification(message);
 
 			} else {

@@ -1,10 +1,9 @@
 #!/bin/bash
 
 APPID=ti.goosh
-VERSION=2.0.10
+VERSION=2.0.12
 
 #cp android/assets/* iphone/
-
 
 #rm -rvf ~/Library/Application\ Support/Titanium/modules/android/$APPID/$VERSION/*
 

@@ -56,7 +56,7 @@ public class TiGooshModule extends KrollModule {
 	private KrollFunction successCallback = null;
 	private KrollFunction errorCallback = null;
 	private KrollFunction messageCallback = null;
-	public GCMParameters  gcmParameters;
+	public GCMParameters gcmParameters;
 	private static TiApplication app;
 	public KrollDict lastData;
 
@@ -67,11 +67,11 @@ public class TiGooshModule extends KrollModule {
 
 	@Kroll.onAppCreate
 	public static void onAppCreate(TiApplication _app) {
-		app=_app;
+		app = _app;
+		new GCMQueue();
 
 	}
-	
-	
+
 	public static TiGooshModule getModule() {
 		if (module != null)
 			return module;
@@ -86,14 +86,11 @@ public class TiGooshModule extends KrollModule {
 			String notification = "";
 
 			if (extras != null) {
-				notification = extras.getString("data");
-				for (String key : extras.keySet()) {
-					Object value = extras.get(key);
-					Log.d(LCAT, "Key: " + key + " Value: " + value);
-				}
+				notification = extras.getString(TiGooshModule.INTENT_EXTRA);
+
 			}
 
-			if (!notification.isEmpty()) {
+			if (notification != null) {
 				sendMessage(notification, true);
 			} else {
 				Log.d(LCAT, "No notification in Intent");
@@ -103,7 +100,8 @@ public class TiGooshModule extends KrollModule {
 		}
 	}
 
-	private boolean checkPlayServices() {
+	@Kroll.method
+	public boolean checkPlayServices() {
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
 
 		GoogleApiAvailability apiAvailability = GoogleApiAvailability
@@ -133,15 +131,17 @@ public class TiGooshModule extends KrollModule {
 		return TiApplication.getInstance().getAppProperties()
 				.getString("gcm.senderid", "");
 	}
-	
+
 	@Kroll.method
 	public KrollDict getLastData() {
 		return lastData;
 	}
-	
+
 	@Kroll.method
 	public void registerForPushNotifications(HashMap options) {
-		new GCMQueue();
+		// db init:
+		
+		// getting activity
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
 		if (false == options.containsKey("callback")) {
 			Log.e(LCAT,
@@ -158,15 +158,16 @@ public class TiGooshModule extends KrollModule {
 			activity.startService(new Intent(activity,
 					RegistrationIntentService.class));
 		}
-		
-		/*try {
-			gcmParameters = new GCMParameters(new KrollDict(options)); // will import stuff from json
-			
-		} catch (JSONException e) {
-			
-		}*/
-		
-		
+
+		/*
+		 * try { gcmParameters = new GCMParameters(new KrollDict(options)); //
+		 * will import stuff from json
+		 * 
+		 * } catch (JSONException e) {
+		 * 
+		 * }
+		 */
+
 	}
 
 	@Kroll.method
@@ -274,14 +275,11 @@ public class TiGooshModule extends KrollModule {
 		HashMap<String, Object> e = new HashMap<String, Object>();
 		e.put("data", data); // to parse on reverse on JS side
 		e.put("inBackground", inBackground);
-		app.fireAppEvent("gcm",new KrollDict(e));
+		// app.fireAppEvent("gcm",new KrollDict(e));
 		if (messageCallback != null)
 			messageCallback.callAsync(getKrollObject(), e);
 		if (hasListeners("onCallback")) {
 			fireEvent("onCallback", e);
 		}
 	}
-	
-	
-
 }
