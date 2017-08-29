@@ -11,20 +11,22 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 public class GCMQueue {
-	Context ctx = TiApplication.getInstance().getApplicationContext();
+	private static Context ctx = TiApplication.getInstance().getApplicationContext();
 	private String LCAT = TiGooshModule.LCAT;
 
 	public GCMQueue() {
-		SQLiteDatabase mydatabase = ctx.openOrCreateDatabase("GCMQUEUE",
-				Context.MODE_PRIVATE, null);
-		mydatabase
-				.execSQL("CREATE TABLE IF NOT EXISTS queue(id TEXT,ctime INTEGER, payload TEXT,done INTEGER);");
-		mydatabase.close();
+		init();
 
 	}
-
+     public static void init() {
+    	 SQLiteDatabase mydatabase = ctx.openOrCreateDatabase("GCMQUEUE",
+ 				Context.MODE_PRIVATE, null);
+ 		mydatabase
+ 				.execSQL("CREATE TABLE IF NOT EXISTS queue(id TEXT,ctime INTEGER, payload TEXT,done INTEGER);");
+ 		mydatabase.close();
+    	 
+     }
 	public void insertMessage(String id, long ctime, JSONObject message) {
-
 		SQLiteDatabase mydatabase = ctx.openOrCreateDatabase("GCMQUEUE",
 				Context.MODE_PRIVATE, null);
 

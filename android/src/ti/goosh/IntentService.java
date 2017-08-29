@@ -20,7 +20,6 @@ import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -36,6 +35,7 @@ import com.google.gson.JsonParser;
 public class IntentService extends GcmListenerService {
 	private static final String LCAT = "tigooshIS";
 	private static final AtomicInteger atomic = new AtomicInteger(0);
+	private TiGooshModule module = TiGooshModule.getModule();
 
 	@Override
 	public void onMessageReceived(String from, Bundle bundle) {
@@ -54,8 +54,9 @@ public class IntentService extends GcmListenerService {
 				message = (new JSONObject(bundle.getString("default")))
 						.getJSONObject("gcm");
 				Log.d(LCAT, message.toString());
-				GCMQueue db= new GCMQueue();
-				db.insertMessage(bundle.getString("google.message_id"),bundle.getLong("google.sent_time"),message);
+				GCMQueue db = new GCMQueue();
+				db.insertMessage(bundle.getString("google.message_id"),
+						bundle.getLong("google.sent_time"), message);
 				parseNotification(message);
 
 			} else {
@@ -96,8 +97,10 @@ public class IntentService extends GcmListenerService {
 	}
 
 	private void showNotification(Context ctx, JSONObject message) {
-		String title = "";
-		String alert = "";
+		Log.d(LCAT, "Content of gcm.defaults.json\n===========================");
+		Log.d(LCAT, module.gcmParameters.toString());
+		String title = module.gcmParameters.getTitle();
+		String alert = module.gcmParameters.getAlert();
 		try {
 			title = message.getString("title");
 			alert = message.getString("alert");
@@ -105,7 +108,7 @@ public class IntentService extends GcmListenerService {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		Log.w(LCAT, "Show Notification: TRUE ~~~~~~~~~~~~~~~");
+		Log.w(LCAT, "Show Notification: TRUE " + title);
 		/* Create intent to (re)start the app's root activity (from gcmpush) */
 		String pkg = ctx.getPackageName();
 		Intent launcherIntent = ctx.getPackageManager()
@@ -129,62 +132,91 @@ public class IntentService extends GcmListenerService {
 
 		builder.setAutoCancel(false);
 		builder.setPriority(NotificationCompat.PRIORITY_HIGH);
-
-		// Title
 		builder.setContentTitle(title);
-
-		// alert
 		builder.setContentText(alert);
 		builder.setTicker(alert);
 
 		// BigText
-
-		if (message != null && message.has("big_text")) {
+		if (message != null && message.has("bigText")) {
 			NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle();
+
 			try {
-				bigTextStyle.bigText(message.getString("big_text"));
+				bigTextStyle.bigText(message.getString("bigText"));
+				bigTextStyle.setSummaryText(message.getString("summaryText"));
+				bigTextStyle.setBigContentTitle(message.getString("bigContentTitle"));
 			} catch (JSONException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			if (message.has("big_text_summary")) {
-				try {
-					bigTextStyle.setSummaryText(message
-							.getString("big_text_summary"));
-				} catch (JSONException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+			try {
+				builder.setContentTitle(message.getString("contentTitle"));
+				builder.setContentText(message.getString("contentText"));
+			} catch (JSONException e1) {
+				e1.printStackTrace();
 			}
-
 			builder.setStyle(bigTextStyle);
 		}
 
 		// Icons
+		String smallIconName = "notificationicon";
+		if (message != null && message.has("smallIcon")) {
+			try {
+				smallIconName = message.getString("smallIcon");
+			} catch (JSONException e) {
+				e.printStackTrace();
+			}
+		}
 		try {
-			int smallIcon = this.getResource("drawable", "notificationicon");
+			int smallIcon = TiRHelper.getApplicationResource("drawable."
+					+ smallIconName);
 			if (smallIcon > 0) {
 				builder.setSmallIcon(smallIcon);
+			} else {
+				Log.d(LCAT, "no icon found");
 			}
 		} catch (Exception ex) {
 			Log.e(LCAT, "Smallicon exception: " + ex.getMessage());
 		}
 
 		// Large icon
-		if (message != null && message.has("icon")) {
+		if (message != null && message.has("bigIcon")) {
+			String iconName;
 			try {
-				Bitmap icon = this.getBitmapFromURL(message.getString("icon"));
+				iconName = module.gcmParameters.getIcon(message
+						.getString("bigIcon"));
+				Bitmap icon = this.getBitmapFromURL(iconName);
 				builder.setLargeIcon(icon);
 			} catch (Exception ex) {
 				Log.e(LCAT, "Icon exception: " + ex.getMessage());
 			}
 		}
+		// Large image
+		if (message != null && message.has("bigImage")) {
+			NotificationCompat.BigPictureStyle bigPictureNotification = new NotificationCompat.BigPictureStyle();
+			try {
+				bigPictureNotification.bigPicture(this.getBitmapFromURL(message
+						.getString("bigImage")));
+				if (message.has("bigContentTitle")) {
+					bigPictureNotification.setBigContentTitle(message
+							.getString("bigContentTitle"));
+				}
+				if (message.has("contentText")) {
+					builder.setContentText(message.getString("contentText"));
+				}
+				builder.setStyle(bigPictureNotification);
+
+			} catch (JSONException e) {
+				e.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
 
 		// Color
-
 		if (message != null && message.has("color")) {
 			try {
-				int color = Color.parseColor(message.getString("color"));
+				int color = module.gcmParameters.getColor(Color
+						.parseColor(message.getString("color")));
 				builder.setColor(color);
 			} catch (Exception ex) {
 				Log.e(LCAT, "Color exception: " + ex.getMessage());
@@ -227,6 +259,7 @@ public class IntentService extends GcmListenerService {
 		}
 
 		// Ongoing
+		builder.setOngoing(module.gcmParameters.getOngoing());
 		if (message != null && message.has("ongoing")) {
 			try {
 				Boolean ongoing = message.getBoolean("ongoing");
@@ -255,7 +288,7 @@ public class IntentService extends GcmListenerService {
 		String tag = "";
 		if (message != null && message.has("tag")) {
 			try {
-				tag = message.getString("tag");
+				tag = module.gcmParameters.getTag(message.getString("tag"));
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -274,7 +307,6 @@ public class IntentService extends GcmListenerService {
 
 	private void parseNotification(JSONObject message) {
 		Context ctx = TiApplication.getInstance().getApplicationContext();
-		TiGooshModule module = TiGooshModule.getModule();
 		Boolean isAppInBackground = !testIfActivityIsTopInList()
 				.getIsForeground();
 		Log.d(LCAT, "~~~~~~~~ background=" + isAppInBackground);
@@ -288,6 +320,8 @@ public class IntentService extends GcmListenerService {
 
 		// here wer have title, alert and data
 		if (!isAppInBackground) {
+			Log.d(LCAT,
+					"!isAppInBackground  => depending on force_show_in_foreground: ");
 			if (message != null && message.has("force_show_in_foreground")) {
 				Boolean forceShowInForeground = false;
 				try {
@@ -302,21 +336,14 @@ public class IntentService extends GcmListenerService {
 				showNotification = false;
 			}
 		}
-		try {
-			TiGooshModule.getModule().lastData = new KrollDict(message);
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		TiApplication.getInstance().getAppProperties()
-				.setString("GCM_LAST_DATA", message.toString());
 
 		if (sendMessage && module != null) {
+			Log.d(LCAT, " IntentServioce tries to sendback to JS via module");
 			module.sendMessage(message.toString(), isAppInBackground);
 		}
 
 		if (showNotification) {
+			Log.d(LCAT, "showNotification will call");
 			showNotification(ctx, message);
 
 		} else {

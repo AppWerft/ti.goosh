@@ -36,11 +36,12 @@ import android.preference.PreferenceManager;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.gcm.GcmPubSub;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.google.android.gms.iid.InstanceID;
 
 import android.app.NotificationManager;
+
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
+import com.google.android.gms.iid.InstanceID;
 
 @Kroll.module(name = "TiGoosh", id = "ti.goosh")
 public class TiGooshModule extends KrollModule {
@@ -60,6 +61,19 @@ public class TiGooshModule extends KrollModule {
 	private static TiApplication app;
 	public KrollDict lastData;
 
+	@Kroll.constant
+	final static int SERVICE_SUCCESS = ConnectionResult.SUCCESS;
+	@Kroll.constant
+	final static int SERVICE_MISSING = ConnectionResult.SERVICE_MISSING;
+	@Kroll.constant
+	final static int SERVICE_UPDATING = ConnectionResult.SERVICE_UPDATING;
+	@Kroll.constant
+	final static int SERVICE_VERSION_UPDATE_REQUIRED = ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED;
+	@Kroll.constant
+	final static int SERVICE_DISABLED = ConnectionResult.SERVICE_DISABLED;
+	@Kroll.constant
+	final static int SERVICE_INVALID = ConnectionResult.SERVICE_INVALID;
+
 	public TiGooshModule() {
 		super();
 		module = this;
@@ -68,7 +82,6 @@ public class TiGooshModule extends KrollModule {
 	@Kroll.onAppCreate
 	public static void onAppCreate(TiApplication _app) {
 		app = _app;
-		new GCMQueue();
 
 	}
 
@@ -133,41 +146,50 @@ public class TiGooshModule extends KrollModule {
 	}
 
 	@Kroll.method
-	public KrollDict getLastData() {
-		return lastData;
+	public int isGooglePlayServicesAvailable() {
+		GoogleApiAvailability googleAPI = GoogleApiAvailability.getInstance();
+		return googleAPI.isGooglePlayServicesAvailable(TiApplication
+				.getAppRootOrCurrentActivity());
 	}
 
 	@Kroll.method
-	public void registerForPushNotifications(HashMap options) {
+	public void init() {
 		// db init:
-		
+		GCMQueue.init();
+		try {
+			gcmParameters = new GCMParameters();
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	@Kroll.method
+	public void registerForPushNotifications(KrollDict options) {
+		if (gcmParameters != null)
+			try {
+				gcmParameters.handleOptions(options);
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		// getting activity
 		Activity activity = TiApplication.getAppRootOrCurrentActivity();
-		if (false == options.containsKey("callback")) {
+		if (false == options.containsKeyAndNotNull("callback")) {
 			Log.e(LCAT,
 					"You have to specify a callback attribute when calling registerForPushNotifications");
 			return;
 		}
 		messageCallback = (KrollFunction) options.get("callback");
-		successCallback = options.containsKey("success") ? (KrollFunction) options
+		successCallback = options.containsKeyAndNotNull("success") ? (KrollFunction) options
 				.get("success") : null;
-		errorCallback = options.containsKey("error") ? (KrollFunction) options
+		errorCallback = options.containsKeyAndNotNull("error") ? (KrollFunction) options
 				.get("error") : null;
 		parseBootIntent();
-		if (checkPlayServices()) {
+		if (isGooglePlayServicesAvailable() == ConnectionResult.SUCCESS) {
 			activity.startService(new Intent(activity,
 					RegistrationIntentService.class));
 		}
-
-		/*
-		 * try { gcmParameters = new GCMParameters(new KrollDict(options)); //
-		 * will import stuff from json
-		 * 
-		 * } catch (JSONException e) {
-		 * 
-		 * }
-		 */
-
 	}
 
 	@Kroll.method
